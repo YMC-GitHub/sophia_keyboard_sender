@@ -1,23 +1,33 @@
 [package]
 name = "sophia_keyboard_sender"
-version = "0.1.0"
+version = "0.3.0"
 edition = "2021"
-description = "Keyboard sender with window targeting and delay control, using keyboard-codes"
+description = "Keyboard sender with window targeting, delay control, and command parsing"
 authors = ["YeMiancheng <ymc.github@gmail.com>"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/ymc-github/sophia_keyboard_sender"
 readme = "README.md"
 documentation = "https://docs.rs/sophia_keyboard_sender"
 
+[features]
+default = ["global", "command_parser"]
+global = ["dep:windows"]
+window_target = ["global"]
+command_parser = ["global", "dep:regex", "dep:lazy_static"]
+convenience = ["global"]
+full = ["global", "window_target", "command_parser", "convenience"]
 
 [dependencies]
-# keyboard-codes = "0.1.0"
 keyboard-codes = { git = "https://github.com/ymc-github/keyboard-codes", branch = "main" }
-
 windows = { version = "0.52.0", features = [
     "Win32_Foundation",
-    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Input_KeyboardAndMouse", 
     "Win32_UI_WindowsAndMessaging",
     "Win32_UI_Input",
-] }
-# std::time = { version = "0.1.44" }
+], optional = true }
+thiserror = "1.0"
+lazy_static = { version = "1.4", optional = true }
+regex = { version = "1.0", optional = true }
+
+[package.metadata.docs.rs]
+all-features = true
