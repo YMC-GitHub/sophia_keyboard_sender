@@ -2,7 +2,7 @@
 
 English | [中文](README.md)
 
-A keyboard event sender with window targeting and delay control, built on Windows API and `keyboard-codes` crate.
+A powerful, cross-platform keyboard event sender with window targeting, delay control, and command parsing capabilities. Built on Windows API and `keyboard-codes` crate.
 
 ## Features
 
@@ -11,7 +11,9 @@ A keyboard event sender with window targeting and delay control, built on Window
 - ⌨️ **Full Keyboard Support** - Support for standard keys, function keys, combinations, etc.
 - 🌐 **Unicode Support** - Support for any character input
 - 🔧 **Dual Send Modes** - Both global simulation and window message sending
+- 📝 **Command Parser** - Execute keyboard operations via text commands
 - 🚀 **High Performance** - Built on native Windows API, low latency and high precision
+- 🔌 **Modular Design** - Enable only the features you need
 
 ## Installation
 
@@ -22,20 +24,30 @@ Add to your `Cargo.toml`:
 sophia_keyboard_sender = { git = "https://github.com/ymc-github/sophia_keyboard_sender", branch = "main" }
 ```
 
+### Feature Flags
+
+- `global` - Global keyboard simulation (enabled by default)
+- `window_target` - Window targeting capabilities (enabled by default)  
+- `command_parser` - Text command parsing (enabled by default)
+- `convenience` - Convenience shortcut functions
+- `full` - All features enabled
+
+Minimal configuration:
+```toml
+sophia_keyboard_sender = { git = "...", default-features = false, features = ["global"] }
+```
+
 ## Quick Start
 
 ### Basic Usage
 
 ```rust
 use sophia_keyboard_sender::*;
-use keyboard_codes::{Key, Modifier};
 use std::time::Duration;
-use std::str::FromStr;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Send single key press
-    let key_a = Key::from_str("A").unwrap();
-    key_click(key_a, None)?;
+    key_click(Key::A, None)?;
 
     // Send character
     send_char('!')?;
@@ -44,147 +56,238 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     type_string("Hello, World!")?;
 
     // Send key combination (Ctrl+C)
-    let ctrl = Modifier::from_str("Control").unwrap();
-    let key_c = Key::from_str("C").unwrap();
-    press_combination(&[ctrl], key_c, None)?;
+    press_combination(&[Modifier::Control], Key::C, None)?;
 
     Ok(())
 }
 ```
 
-### Key Operations with Delay
+### Command Parser (Recommended)
 
 ```rust
-// Press and hold for 100ms before release
-key_click(Key::from_str("Enter").unwrap(), Some(Duration::from_millis(100)))?;
+use sophia_keyboard_sender::send;
 
-// Hold combination for 500ms
-press_combination(
-    &[Modifier::from_str("Control").unwrap()], 
-    Key::from_str("V").unwrap(), 
-    Some(Duration::from_millis(500))
-)?;
+// Basic key operations
+send("key:a")?;                    // Press and release A key
+send("key:enter")?;                // Press Enter key
+send("char:!")?;                   // Send exclamation mark
+send("text:hello world")?;         // Type "hello world"
+
+// Shortcuts
+send("shortcut:ctrl+c")?;          // Ctrl+C
+send("shortcut:alt+f4")?;          // Alt+F4
+send("shortcut:ctrl+shift+esc")?;  // Ctrl+Shift+Esc
+
+// Advanced options
+send("key:a,duration:100ms")?;     // Hold key for 100ms
+send("key:a,hwnd:123456")?;        // Send to specific window
+send("text:test,hwnd:0x1A2B,duration:10ms")?;
 ```
 
-### Send Events to Specific Window
+### Window Targeting
 
 ```rust
-use windows::Win32::Foundation::HWND;
+use sophia_keyboard_sender::*;
 
-// Assume you have a window handle
-let hwnd = HWND(0x123456); // Replace with actual window handle
+// Send to specific window
+send_key_click_to_window(123456, Key::Enter, None)?;
 
-// Activate window
-set_window_focus(hwnd, true)?;
+// Type text to specific window  
+type_string_to_window(123456, "Text to specific window")?;
 
-// Send key to specific window
-send_key_click_to_window(hwnd, Key::from_str("Enter").unwrap(), None)?;
+// Control window focus
+set_window_focus(123456, true)?;  // Bring to top and focus
+```
 
-// Type text to specific window
-type_string_to_window(hwnd, "Text input to specific window")?;
+### Convenience Functions
+
+```rust
+use sophia_keyboard_sender::*;
+
+send_tab()?;        // Send Tab key
+send_enter()?;      // Send Enter key  
+send_escape()?;     // Send Escape key
+send_space()?;      // Send Space key
+send_backspace()?;  // Send Backspace key
+send_delete()?;     // Send Delete key
 ```
 
 ## API Reference
 
-### Global Keyboard Events (Physical Keyboard Simulation)
+### Core Functions
 
+#### Global Keyboard Simulation
 - `key_down(key: Key)` - Press key down
 - `key_up(key: Key)` - Release key up  
-- `key_click(key: Key, duration: Option<Duration>)` - Click key (with optional hold duration)
+- `key_click(key: Key, duration: Option<Duration>)` - Click key with optional hold duration
 - `send_char(c: char)` - Send character (Unicode supported)
 - `type_string(text: &str)` - Type string
 - `press_combination(modifiers: &[Modifier], key: Key, duration: Option<Duration>)` - Send key combination
 
-### Window-Targeted Keyboard Events (via Window Messages)
+#### Window Targeting
+- `send_key_down_to_window(hwnd: WindowHandle, key: Key)` - Send key down to window
+- `send_key_up_to_window(hwnd: WindowHandle, key: Key)` - Send key up to window
+- `send_key_click_to_window(hwnd: WindowHandle, key: Key, duration: Option<Duration>)` - Send key click to window
+- `send_char_to_window(hwnd: WindowHandle, c: char)` - Send character to window
+- `type_string_to_window(hwnd: WindowHandle, text: &str)` - Type string to window
+- `set_window_focus(hwnd: WindowHandle, bring_to_top: bool)` - Control window focus
 
-- `send_key_down_to_window(hwnd: HWND, key: Key)` - Send key down to window
-- `send_key_up_to_window(hwnd: HWND, key: Key)` - Send key up to window
-- `send_key_click_to_window(hwnd: HWND, key: Key, duration: Option<Duration>)` - Send key click to window
-- `send_char_to_window(hwnd: HWND, c: char)` - Send character to window
-- `type_string_to_window(hwnd: HWND, text: &str)` - Type string to window
-- `set_window_focus(hwnd: HWND, bring_to_top: bool)` - Control window focus
+#### Command Parser
+- `send(command: &str)` - Execute text command
+- `shortcut(shortcut: &str)` - Send keyboard shortcut
+- `parse_duration(duration_str: &str)` - Parse duration string
+- `parse_key(key_str: &str)` - Parse key name
+- `parse_modifier(modifier_str: &str)` - Parse modifier name
 
-## Keyboard Key Support
+### Supported Key Names
 
-This library supports full keyboard keys through `keyboard-codes` crate:
-
-### Alphabet Keys
+#### Alphabet Keys
 ```rust
-Key::from_str("A").unwrap()  // A key
-Key::from_str("Z").unwrap()  // Z key
+"a", "b", "c", ..., "z"  // Maps to Key::A, Key::B, etc.
 ```
 
-### Number Keys
+#### Number Keys  
 ```rust
-Key::from_str("D0").unwrap() // Main keyboard 0
-Key::from_str("Num0").unwrap() // Numpad 0
+"0", "1", "2", ..., "9"  // Maps to Key::D0, Key::D1, etc.
 ```
 
-### Function Keys
+#### Special Keys
 ```rust
-Key::from_str("F1").unwrap()  // F1 key
-Key::from_str("F12").unwrap() // F12 key
+"enter", "space", "tab", "escape", "backspace", "delete",
+"insert", "home", "end", "pageup", "pagedown"
 ```
 
-### Control Keys
+#### Arrow Keys
 ```rust
-Key::from_str("Enter").unwrap()    // Enter key
-Key::from_str("Escape").unwrap()   // ESC key
-Key::from_str("Space").unwrap()    // Space key
-Key::from_str("Tab").unwrap()      // Tab key
+"up", "down", "left", "right"  // Maps to ArrowUp, ArrowDown, etc.
 ```
 
-### Arrow Keys
+#### Function Keys
 ```rust
-Key::from_str("ArrowUp").unwrap()    // Up arrow
-Key::from_str("ArrowDown").unwrap()  // Down arrow
-Key::from_str("ArrowLeft").unwrap()  // Left arrow  
-Key::from_str("ArrowRight").unwrap() // Right arrow
+"f1", "f2", ..., "f12"  // Maps to F1, F2, etc.
 ```
 
-### Modifier Keys
+#### Modifier Keys
 ```rust
-Modifier::from_str("Shift").unwrap()     // Shift key
-Modifier::from_str("Control").unwrap()   // Ctrl key
-Modifier::from_str("Alt").unwrap()       // Alt key
-Modifier::from_str("Meta").unwrap()      // Windows key
+"ctrl", "shift", "alt", "meta",
+"leftctrl", "rightctrl", "leftshift", "rightshift",
+"leftalt", "rightalt", "leftmeta", "rightmeta"
 ```
+
+## Command Syntax
+
+### Basic Format
+```
+key:value,key2:value2,key3:value3
+```
+
+### Supported Commands
+
+#### Key Operations
+```rust
+"key:a"                          // Click A key
+"key:enter,duration:100ms"       // Hold Enter for 100ms
+"key:a,hwnd:123456"              // Send to window 123456
+```
+
+#### Character Operations
+```rust
+"char:!"                         // Send exclamation mark
+"char:!,hwnd:0x1A2B"             // Send to specific window
+```
+
+#### Text Operations  
+```rust
+"text:hello world"               // Type text
+"text:test,hwnd:123456"          // Type to specific window
+"text:hello,duration:10ms"       // Type with delay between chars
+```
+
+#### Shortcut Operations
+```rust
+"shortcut:ctrl+c"                // Ctrl+C
+"shortcut:alt+tab"               // Alt+Tab
+"shortcut:ctrl+shift+escape"     // Ctrl+Shift+Escape
+```
+
+#### Action-based Format
+```rust
+"action:key_click,key:a"         // Click A key
+"action:char,char:!"             // Send character
+"action:text,text:hello"         // Type text
+"action:key_down,key:shift"      // Press Shift down
+"action:key_up,key:shift"        // Release Shift up
+```
+
+### Duration Format
+- `"100ms"` - 100 milliseconds
+- `"2s"` - 2 seconds
+- `"500ms"` - 500 milliseconds
+
+### Window Handle Format
+- `"123456"` - Decimal window handle
+- `"0x1A2B"` - Hexadecimal window handle  
+- `"0"` or `""` - Current foreground window
 
 ## Use Cases
 
 ### Automated Testing
 ```rust
 // Automated form filling
-type_string("Test User")?;
-key_click(Key::from_str("Tab").unwrap(), None)?;
-type_string("test@example.com")?;
-key_click(Key::from_str("Enter").unwrap(), None)?;
+send("text:John Doe")?;
+send("key:tab")?;
+send("text:john@example.com")?;
+send("key:tab")?;
+send("text:password123")?;
+send("key:enter")?;
 ```
 
 ### Game Automation
 ```rust
-// Game shortcuts
-press_combination(
-    &[Modifier::from_str("Control").unwrap()],
-    Key::from_str("Q").unwrap(),
-    Some(Duration::from_millis(100))
-)?;
+// Game controls with timing
+send("key:w,duration:200ms")?;    // Move forward
+send("key:space")?;               // Jump
+send("shortcut:ctrl+1")?;         // Use item 1
 ```
 
 ### Remote Control
 ```rust
-// Send control commands to remote window
+// Control remote application
 set_window_focus(remote_window, true)?;
-type_string_to_window(remote_window, "Execute command")?;
-key_click_to_window(remote_window, Key::from_str("Enter").unwrap(), None)?;
+send("text:git status")?;
+send("key:enter")?;
 ```
 
-## Important Notes
+### Macro Recording
+```rust
+// Execute recorded macros
+send("shortcut:win+r")?;
+send("text:notepad")?;
+send("key:enter,duration:500ms")?;
+send("text:Hello from macro!")?;
+```
 
-1. **Administrator Privileges**: Some operations may require administrator privileges
-2. **Window Focus**: When sending messages to specific windows, ensure the window exists and can receive messages
-3. **Delay Settings**: Reasonable delay settings can improve operation reliability
-4. **Error Handling**: All functions return `Result`, error handling is recommended
+## Error Handling
+
+All functions return `Result<T, KeyboardSenderError>`:
+
+```rust
+#[derive(Error, Debug)]
+pub enum KeyboardSenderError {
+    ParseError(String),
+    UnsupportedKey(String),
+    UnsupportedModifier(String), 
+    InvalidDuration(String),
+    InvalidWindowHandle(String),
+    CommandParseError(String),
+    FeatureNotEnabled(String),
+    WindowsError,
+}
+```
+
+## Platform Support
+
+Currently supports **Windows** platform. Linux and macOS support planned for future releases.
 
 ## License
 
