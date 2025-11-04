@@ -1,6 +1,6 @@
 # Sophia Keyboard Sender
 
-[English](README.md) | 中文
+[English](README.en.md) | 中文
 
 一个支持窗口目标定位和延迟控制的键盘事件发送器，基于 Windows API 和 `keyboard-codes` crate 构建。
 
