@@ -1,3 +1,4 @@
+use sleep_utils::SleepError;
 use thiserror::Error;
 
 /// 错误类型
@@ -19,6 +20,8 @@ pub enum KeyboardSenderError {
     FeatureNotEnabled(String),
     #[error("Windows API error")]
     WindowsError,
+    #[error("Sleep error: {0}")]
+    SleepError(#[from] SleepError),
 }
 
 pub type Result<T> = std::result::Result<T, KeyboardSenderError>;

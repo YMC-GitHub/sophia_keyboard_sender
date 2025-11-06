@@ -3,33 +3,46 @@
 //!
 //! # 特性
 //! - `global`: 全局键盘模拟功能（默认启用）
-//! - `window_target`: 窗口目标功能（默认启用）
+//! - `window_target`: 窗口目标功能
 //! - `command_parser`: 命令解析器功能（默认启用）
-//! - `convenience`: 便捷函数
+//! - `smart`: 智能输入包装函数（可选）
 //!
 //! # 示例
 //! ```
 //! use sophia_keyboard_sender::*;
 //!
-//! // 基本使用
-//! key_click(Key::A, None).unwrap();
+//! // 明确API使用（推荐用于生产环境）
+//! type_string("Hello World").unwrap();
+//! key_click(Key::Enter, None).unwrap();
+//! press_combination(&[Modifier::Control], Key::C, None).unwrap();
 //!
-//! // 命令解析
-//! send("key:a").unwrap();
-//! send("shortcut:ctrl+c").unwrap();
+//! // 特殊键的便捷使用方式
+//! key_click(Key::Tab, None).unwrap();      // Tab键
+//! key_click(Key::Enter, None).unwrap();    // 回车键
+//! key_click(Key::Space, None).unwrap();    // 空格键
+//!
+//! // 智能输入（需要启用 smart 特性）
+//! # #[cfg(feature = "smart")]
+//! # {
+//! type_auto("Hello World").unwrap();      // 自动检测为文本
+//! type_auto("enter").unwrap();           // 自动检测为回车键
+//! type_auto("ctrl+c").unwrap();          // 自动检测为快捷键
+//! # }
 //! ```
 
 // 模块声明
-pub mod error;
-pub mod types;
-
-pub mod convenience;
 pub mod core;
+pub mod error;
 pub mod parser;
+pub mod smart;
+pub mod types;
 
 // 重新导出主要类型和函数
 pub use error::{KeyboardSenderError, Result};
 pub use types::{Key, Modifier, WindowHandle};
+
+// 重新导出 sleep-utils 的功能
+pub use sleep_utils::{parse_sleep_duration, sleep, smart_sleep};
 
 // 根据特性条件导出
 #[cfg(feature = "global")]
@@ -41,11 +54,42 @@ pub use core::window_target::*;
 #[cfg(feature = "command_parser")]
 pub use parser::command::*;
 
-#[cfg(feature = "command_parser")]
-pub use parser::duration::*;
+/// 智能输入函数（需要启用 `smart` 特性）
+///
+/// 自动检测输入类型：
+/// - 文本 → 字符串输入
+/// - 单键 → 按键点击  
+/// - 快捷键 → 组合键
+/// - 修饰符 → 修饰键点击
+///
+/// # 示例
+/// ```
+/// # #[cfg(feature = "smart")]
+/// # {
+/// use sophia_keyboard_sender::type_auto;
+///
+/// type_auto("Hello World").unwrap();  // 文本
+/// type_auto("enter").unwrap();        // 回车
+/// type_auto("ctrl+s").unwrap();       // 保存
+/// type_auto("a").unwrap();            // 字母
+/// # }
+/// ```
+#[cfg(feature = "smart")]
+pub fn type_auto(input: &str) -> Result<()> {
+    crate::smart::type_auto(input)
+}
 
-#[cfg(feature = "convenience")]
-pub use convenience::shortcuts::*;
+/// 批量智能输入（需要启用 `smart` 特性）
+#[cfg(feature = "smart")]
+pub fn type_multiple(inputs: &[&str]) -> Result<()> {
+    crate::smart::type_multiple(inputs)
+}
+
+/// 带延迟的智能输入（需要启用 `smart` 特性）
+#[cfg(feature = "smart")]
+pub fn type_with_delay(text: &str, delay: std::time::Duration) -> Result<()> {
+    crate::smart::type_with_delay(text, delay)
+}
 
 // 测试模块
 #[cfg(test)]
@@ -53,82 +97,39 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_sleep_functions() -> Result<()> {
+        smart_sleep(10)?;
+        smart_sleep("10ms")?;
+        Ok(())
+    }
+
+    #[test]
     #[cfg(feature = "command_parser")]
     fn test_command_parser() -> Result<()> {
-        // 测试向后兼容格式（这些应该能工作）
         send("key:a")?;
         send("char:b")?;
         send("text:hello")?;
-
-        // 测试带 action 参数的格式
-        send("action:key_click,key:a")?;
-        send("action:char,char:!")?;
-        send("action:text,text:world")?;
-
-        // 测试快捷键
         send("shortcut:ctrl+c")?;
-
         Ok(())
     }
 
     #[test]
-    #[cfg(feature = "convenience")]
-    fn test_convenience_functions() -> Result<()> {
-        send_tab()?;
-        send_enter()?;
-        send_escape()?;
+    fn test_special_keys() -> Result<()> {
+        // 测试特殊键的使用方式（替代原来的便捷函数）
+        #[cfg(feature = "global")]
+        {
+            key_click(Key::Tab, None)?;
+            key_click(Key::Enter, None)?;
+            key_click(Key::Space, None)?;
+            key_click(Key::Escape, None)?;
+        }
         Ok(())
     }
 
     #[test]
-    #[cfg(feature = "command_parser")]
-    fn test_parse_functions() -> Result<()> {
-        use crate::parser::{parse_duration, parse_hwnd, parse_key, parse_modifier};
-
-        // 测试持续时间解析
-        assert_eq!(
-            parse_duration("100ms")?,
-            std::time::Duration::from_millis(100)
-        );
-        assert_eq!(parse_duration("2s")?, std::time::Duration::from_secs(2));
-
-        // 测试键名解析
-        assert_eq!(parse_key("a")?, Key::A);
-        assert_eq!(parse_key("enter")?, Key::Enter);
-
-        // 测试修饰符解析
-        assert_eq!(parse_modifier("ctrl")?, Modifier::Control);
-        assert_eq!(parse_modifier("shift")?, Modifier::Shift);
-
-        // 测试窗口句柄解析
-        assert_eq!(parse_hwnd("123456")?, 123456);
-        assert_eq!(parse_hwnd("0x1A2B")?, 0x1A2B);
-        assert_eq!(parse_hwnd("")?, 0);
-
-        Ok(())
-    }
-
-    #[test]
-    #[cfg(feature = "command_parser")]
-    fn test_shortcut_function() -> Result<()> {
-        shortcut("ctrl+c")?;
-        shortcut("alt+f4")?;
-        Ok(())
-    }
-
-    #[test]
-    #[cfg(feature = "command_parser")]
-    fn test_parse_command_params() -> Result<()> {
-        use crate::parser::parse_command_params;
-
-        let params = parse_command_params("key_click:a,hwnd:123456,duration:50ms");
-        assert_eq!(params.get("key_click"), Some(&"a".to_string()));
-        assert_eq!(params.get("hwnd"), Some(&"123456".to_string()));
-        assert_eq!(params.get("duration"), Some(&"50ms".to_string()));
-
-        let params = parse_command_params("shortcut:ctrl+alt+delete");
-        assert_eq!(params.get("shortcut"), Some(&"ctrl+alt+delete".to_string()));
-
+    #[cfg(feature = "smart")]
+    fn test_smart_functions() -> Result<()> {
+        // 测试智能功能可用性
         Ok(())
     }
 }

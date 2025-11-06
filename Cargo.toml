@@ -14,11 +14,12 @@ default = ["global", "command_parser"]
 global = ["dep:windows"]
 window_target = ["global"]
 command_parser = ["global", "dep:regex", "dep:lazy_static"]
-convenience = ["global"]
-full = ["global", "window_target", "command_parser", "convenience"]
+smart = ["global", "command_parser"]
+full = ["global", "window_target", "command_parser", "smart"]
 
 [dependencies]
-keyboard-codes = { git = "https://github.com/ymc-github/keyboard-codes", branch = "main" }
+keyboard-codes = { version = "0.3.0", features = ["serde", "phf"] }
+# keyboard-codes = { git = "https://github.com/ymc-github/keyboard-codes", branch = "main" }
 windows = { version = "0.52.0", features = [
     "Win32_Foundation",
     "Win32_UI_Input_KeyboardAndMouse", 
@@ -28,6 +29,8 @@ windows = { version = "0.52.0", features = [
 thiserror = "1.0"
 lazy_static = { version = "1.4", optional = true }
 regex = { version = "1.0", optional = true }
+sleep-utils = "0.2.0"
+# sleep-utils = { git = "https://github.com/ymc-github/sleep-utils", branch = "main" }
 
 [package.metadata.docs.rs]
 all-features = true
